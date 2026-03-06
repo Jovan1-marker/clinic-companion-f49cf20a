@@ -57,6 +57,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        clinic: {
+          green: "hsl(var(--clinic-green-dark))",
+          mint: "hsl(var(--clinic-green-light))",
+          "mint-bg": "hsl(var(--clinic-mint))",
+          gold: "hsl(var(--clinic-gold))",
+          "gold-hover": "hsl(var(--clinic-gold-hover))",
+        },
+      },
+      fontFamily: {
+        poppins: ['Poppins', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
