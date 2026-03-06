@@ -1,16 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-/* MIMS Design System - Medical Information Management System
-   Primary: Dark Forest Green (#1a4d2e)
-   Secondary: Light Mint Green (#e8f5e9)
-   Accent: Gold/Yellow (#f0c040)
-   Font: Poppins
-   All colors in HSL format
-*/
-
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
