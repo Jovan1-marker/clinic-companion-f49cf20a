@@ -2,11 +2,12 @@
  * Student Portal
  * Dashboard for students to manage appointments, view announcements, send messages.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import ClinicSidebar from "@/components/ClinicSidebar";
-import { CalendarCheck, CalendarPlus, Megaphone, MessageSquare, Settings } from "lucide-react";
+import { CalendarCheck, CalendarPlus, Megaphone, MessageSquare, Settings, Camera } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
