@@ -347,6 +347,41 @@ const StudentPortal = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground mb-6">Account Settings</h2>
             <div className="bg-card rounded-lg border border-border p-8 max-w-2xl">
+              {/* Avatar Upload */}
+              <div className="flex items-center gap-6 mb-8">
+                <div className="relative group">
+                  <Avatar className="w-20 h-20">
+                    {profile?.avatar_url ? (
+                      <AvatarImage src={profile.avatar_url} alt="Profile" />
+                    ) : (
+                      <AvatarFallback className="text-xl font-bold bg-primary text-primary-foreground">
+                        {(profile?.full_name || "U").split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <label className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
+                    <Camera className="w-6 h-6 text-white" />
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !user) return;
+                      const ext = file.name.split(".").pop();
+                      const filePath = `${user.id}/avatar.${ext}`;
+                      const { error: upErr } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true });
+                      if (upErr) { toast({ title: "Upload failed", description: upErr.message, variant: "destructive" }); return; }
+                      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
+                      const avatarUrl = urlData.publicUrl + "?t=" + Date.now();
+                      await supabase.from("profiles").update({ avatar_url: avatarUrl }).eq("id", user.id);
+                      setProfile({ ...profile, avatar_url: avatarUrl });
+                      toast({ title: "Profile photo updated!" });
+                    }} />
+                  </label>
+                </div>
+                <div>
+                  <p className="font-semibold text-card-foreground">{profile?.full_name || "Student"}</p>
+                  <p className="text-sm text-muted-foreground">Click photo to change</p>
+                </div>
+              </div>
+
               <form onSubmit={handleUpdateSettings} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-card-foreground mb-2">Full Name</label>
