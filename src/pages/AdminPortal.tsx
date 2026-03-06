@@ -42,6 +42,8 @@ const AdminPortal = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [patientSearch, setPatientSearch] = useState("");
+  const [filterGrade, setFilterGrade] = useState("all");
+  const [filterStrand, setFilterStrand] = useState("all");
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
@@ -154,10 +156,28 @@ const AdminPortal = () => {
     if (finRes.data) setFinishedAppointments(finRes.data);
   };
 
-  const filteredPatients = patients.filter((p) => {
-    const q = patientSearch.toLowerCase();
-    return p.full_name?.toLowerCase().includes(q) || p.lrn?.toLowerCase().includes(q) || p.grade?.toLowerCase().includes(q);
-  });
+  /* Helper to extract grade number from stored grade string like "11 ICT - THALES" or "7 - Section" */
+  const extractGradeNum = (gradeStr: string) => {
+    const match = gradeStr?.match(/^(\d+)/);
+    return match ? match[1] : "";
+  };
+
+  const extractStrand = (gradeStr: string) => {
+    const match = gradeStr?.match(/^\d+\s+(\w+)\s*-/);
+    return match ? match[1] : "";
+  };
+
+  const filteredPatients = patients
+    .filter((p) => {
+      const q = patientSearch.toLowerCase();
+      const matchesSearch = p.full_name?.toLowerCase().includes(q) || p.lrn?.toLowerCase().includes(q) || p.grade?.toLowerCase().includes(q);
+      const gradeNum = extractGradeNum(p.grade || "");
+      const matchesGrade = filterGrade === "all" || gradeNum === filterGrade;
+      const strand = extractStrand(p.grade || "");
+      const matchesStrand = filterStrand === "all" || strand === filterStrand;
+      return matchesSearch && matchesGrade && matchesStrand;
+    })
+    .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
 
   /* ===== CRUD Functions ===== */
   const handleAddAnnouncement = async (e: React.FormEvent) => {
@@ -446,11 +466,31 @@ const AdminPortal = () => {
                 <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Users className="w-6 h-6" /> Patients</h2>
                 <p className="text-sm text-muted-foreground">Manage patient health profiles. Up to 50 patients.</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input placeholder="Search patients..." value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} className="pl-10 w-56" />
                 </div>
+                <Select value={filterGrade} onValueChange={(v) => { setFilterGrade(v); setFilterStrand("all"); }}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="Grade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {["7", "8", "9", "10", "11", "12"].map((g) => (
+                      <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(filterGrade === "11" || filterGrade === "12") && (
+                  <Select value={filterStrand} onValueChange={setFilterStrand}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="Strand" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Strands</SelectItem>
+                      {strands.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button onClick={() => setShowAddPatient(true)}><Plus className="w-4 h-4 mr-2" /> Add Patient</Button>
               </div>
             </div>
