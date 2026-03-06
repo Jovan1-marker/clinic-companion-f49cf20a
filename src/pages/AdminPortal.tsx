@@ -466,11 +466,31 @@ const AdminPortal = () => {
                 <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Users className="w-6 h-6" /> Patients</h2>
                 <p className="text-sm text-muted-foreground">Manage patient health profiles. Up to 50 patients.</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input placeholder="Search patients..." value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} className="pl-10 w-56" />
                 </div>
+                <Select value={filterGrade} onValueChange={(v) => { setFilterGrade(v); setFilterStrand("all"); }}>
+                  <SelectTrigger className="w-36"><SelectValue placeholder="Grade" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Grades</SelectItem>
+                    {["7", "8", "9", "10", "11", "12"].map((g) => (
+                      <SelectItem key={g} value={g}>Grade {g}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(filterGrade === "11" || filterGrade === "12") && (
+                  <Select value={filterStrand} onValueChange={setFilterStrand}>
+                    <SelectTrigger className="w-36"><SelectValue placeholder="Strand" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Strands</SelectItem>
+                      {strands.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <Button onClick={() => setShowAddPatient(true)}><Plus className="w-4 h-4 mr-2" /> Add Patient</Button>
               </div>
             </div>
