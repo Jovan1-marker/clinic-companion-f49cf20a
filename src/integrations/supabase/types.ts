@@ -14,7 +14,270 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      announcements: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
+      appointments: {
+        Row: {
+          admin_comment: string | null
+          created_at: string
+          description: string | null
+          grade: string | null
+          id: string
+          lrn: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          service_type: string
+          status: string
+          student_id: string | null
+          student_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          admin_comment?: string | null
+          created_at?: string
+          description?: string | null
+          grade?: string | null
+          id?: string
+          lrn?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_type: string
+          status?: string
+          student_id?: string | null
+          student_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          admin_comment?: string | null
+          created_at?: string
+          description?: string | null
+          grade?: string | null
+          id?: string
+          lrn?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_type?: string
+          status?: string
+          student_id?: string | null
+          student_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feedback: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          sender_role: string
+          student_id: string | null
+          student_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          sender_role?: string
+          student_id?: string | null
+          student_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          sender_role?: string
+          student_id?: string | null
+          student_name?: string | null
+        }
+        Relationships: []
+      }
+      finished_appointments: {
+        Row: {
+          admin_comment: string | null
+          created_at: string
+          description: string | null
+          finished_at: string
+          grade: string | null
+          id: string
+          lrn: string | null
+          original_id: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          service_type: string | null
+          student_id: string | null
+          student_name: string | null
+        }
+        Insert: {
+          admin_comment?: string | null
+          created_at?: string
+          description?: string | null
+          finished_at?: string
+          grade?: string | null
+          id?: string
+          lrn?: string | null
+          original_id?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_type?: string | null
+          student_id?: string | null
+          student_name?: string | null
+        }
+        Update: {
+          admin_comment?: string | null
+          created_at?: string
+          description?: string | null
+          finished_at?: string
+          grade?: string | null
+          id?: string
+          lrn?: string | null
+          original_id?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          service_type?: string | null
+          student_id?: string | null
+          student_name?: string | null
+        }
+        Relationships: []
+      }
+      patients: {
+        Row: {
+          bmi_status: string | null
+          clinic_exposure: string | null
+          contact_no: string | null
+          created_at: string
+          email: string | null
+          full_name: string
+          grade: string | null
+          height: string | null
+          home_address: string | null
+          id: string
+          lrn: string | null
+          medical_history: string | null
+          updated_at: string
+          weight: string | null
+        }
+        Insert: {
+          bmi_status?: string | null
+          clinic_exposure?: string | null
+          contact_no?: string | null
+          created_at?: string
+          email?: string | null
+          full_name: string
+          grade?: string | null
+          height?: string | null
+          home_address?: string | null
+          id?: string
+          lrn?: string | null
+          medical_history?: string | null
+          updated_at?: string
+          weight?: string | null
+        }
+        Update: {
+          bmi_status?: string | null
+          clinic_exposure?: string | null
+          contact_no?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string
+          grade?: string | null
+          height?: string | null
+          home_address?: string | null
+          id?: string
+          lrn?: string | null
+          medical_history?: string | null
+          updated_at?: string
+          weight?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          contact_no: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          grade: string | null
+          home_address: string | null
+          id: string
+          lrn: string | null
+          role: string
+          section: string | null
+          strand: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_no?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          grade?: string | null
+          home_address?: string | null
+          id: string
+          lrn?: string | null
+          role?: string
+          section?: string | null
+          strand?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_no?: string | null
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          grade?: string | null
+          home_address?: string | null
+          id?: string
+          lrn?: string | null
+          role?: string
+          section?: string | null
+          strand?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      records: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
