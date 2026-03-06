@@ -39,7 +39,8 @@ const Login = () => {
         .eq("id", data.user.id)
         .maybeSingle();
 
-      if (profile?.role === "admin") {
+      const role = profile?.role || data.user.user_metadata?.role;
+      if (role === "admin") {
         navigate("/admin");
       } else {
         navigate("/student");
