@@ -156,10 +156,28 @@ const AdminPortal = () => {
     if (finRes.data) setFinishedAppointments(finRes.data);
   };
 
-  const filteredPatients = patients.filter((p) => {
-    const q = patientSearch.toLowerCase();
-    return p.full_name?.toLowerCase().includes(q) || p.lrn?.toLowerCase().includes(q) || p.grade?.toLowerCase().includes(q);
-  });
+  /* Helper to extract grade number from stored grade string like "11 ICT - THALES" or "7 - Section" */
+  const extractGradeNum = (gradeStr: string) => {
+    const match = gradeStr?.match(/^(\d+)/);
+    return match ? match[1] : "";
+  };
+
+  const extractStrand = (gradeStr: string) => {
+    const match = gradeStr?.match(/^\d+\s+(\w+)\s*-/);
+    return match ? match[1] : "";
+  };
+
+  const filteredPatients = patients
+    .filter((p) => {
+      const q = patientSearch.toLowerCase();
+      const matchesSearch = p.full_name?.toLowerCase().includes(q) || p.lrn?.toLowerCase().includes(q) || p.grade?.toLowerCase().includes(q);
+      const gradeNum = extractGradeNum(p.grade || "");
+      const matchesGrade = filterGrade === "all" || gradeNum === filterGrade;
+      const strand = extractStrand(p.grade || "");
+      const matchesStrand = filterStrand === "all" || strand === filterStrand;
+      return matchesSearch && matchesGrade && matchesStrand;
+    })
+    .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || ""));
 
   /* ===== CRUD Functions ===== */
   const handleAddAnnouncement = async (e: React.FormEvent) => {
