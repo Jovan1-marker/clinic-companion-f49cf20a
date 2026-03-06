@@ -42,6 +42,8 @@ const AdminPortal = () => {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [patientSearch, setPatientSearch] = useState("");
+  const [filterGrade, setFilterGrade] = useState("all");
+  const [filterStrand, setFilterStrand] = useState("all");
   const [showAddAnnouncement, setShowAddAnnouncement] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementMessage, setAnnouncementMessage] = useState("");
