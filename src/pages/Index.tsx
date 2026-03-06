@@ -105,22 +105,33 @@ const Index = () => {
         </div>
       )}
 
-      {/* ============ HERO SLIDESHOW ============ */}
-      <section className="relative w-full h-[500px] overflow-hidden bg-primary">
+      {/* ============ HERO SECTION ============ */}
+      <section className="relative w-full h-[520px] overflow-hidden bg-primary">
+        {/* Decorative circles */}
+        <div className="absolute -left-32 top-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full border-[60px] border-primary-foreground/10" />
+        <div className="absolute -left-16 bottom-0 w-[250px] h-[250px] rounded-full bg-primary-foreground/5" />
+        <div className="absolute -right-24 -top-12 w-[350px] h-[350px] rounded-full border-[50px] border-primary-foreground/8" />
+        <div className="absolute right-16 top-20 w-[280px] h-[280px] rounded-full bg-primary-foreground/5" />
+
+        {/* Slide content */}
         {slides.map((slide, index) => (
           <div
             key={index}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
+            className={`absolute inset-0 flex flex-col items-center justify-center text-center px-6 transition-opacity duration-1000 ${
               index === currentSlide ? "opacity-100" : "opacity-0"
             }`}
           >
-            <img src={slide.src} alt={slide.alt} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-foreground/50" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <h2 className="text-4xl md:text-5xl font-bold text-primary-foreground text-center slide-fade-in">
-                {slide.caption}
-              </h2>
-            </div>
+            <span className="inline-block bg-accent text-accent-foreground px-5 py-2 rounded-md text-sm font-bold uppercase tracking-wider mb-6">
+              School Health Services
+            </span>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-primary-foreground leading-tight mb-4 slide-fade-in">
+              {slide.caption.split(" ").length > 3
+                ? <>{slide.caption.split(" ").slice(0, Math.ceil(slide.caption.split(" ").length / 2)).join(" ")},<br />{slide.caption.split(" ").slice(Math.ceil(slide.caption.split(" ").length / 2)).join(" ")}</>
+                : slide.caption}
+            </h2>
+            <p className="text-primary-foreground/80 text-lg max-w-xl">
+              Providing compassionate, quality healthcare for every student in our school community.
+            </p>
           </div>
         ))}
 
