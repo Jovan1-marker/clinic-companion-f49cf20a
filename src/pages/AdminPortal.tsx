@@ -384,18 +384,36 @@ const AdminPortal = () => {
     editorRef.current?.focus();
   };
 
-  /* Admin reply to student message */
+  /* Admin reply to student message — saves in-app AND sends SMS */
   const handleAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedStudentId || !adminReply.trim()) return;
+
+    /* 1. Save in-app message */
     const { error } = await supabase.from("feedback").insert({
       student_id: selectedStudentId,
       student_name: "Admin",
       message: adminReply,
       sender_role: "admin",
     });
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
-    else { setAdminReply(""); loadData(); }
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
+    /* 2. Send SMS copy to the student */
+    try {
+      const contact = await getStudentContact(selectedStudentId);
+      if (contact) {
+        await sendSms(contact, `[School Clinic] Message from Admin: ${adminReply}`);
+      }
+    } catch (smsErr) {
+      console.error("SMS send failed (message still saved in-app):", smsErr);
+    }
+
+    setAdminReply("");
+    loadData();
+    toast({ title: "Sent", description: "Message sent in-app and via SMS." });
   };
 
   /* Overview stats */
