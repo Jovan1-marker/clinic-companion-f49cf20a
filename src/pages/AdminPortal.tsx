@@ -33,6 +33,7 @@ const AdminPortal = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState("Overview");
+  const [expandedPatientId, setExpandedPatientId] = useState<string | null>(null);
   const [patients, setPatients] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [allAppointments, setAllAppointments] = useState<any[]>([]);
@@ -244,6 +245,18 @@ const AdminPortal = () => {
     normal: patients.filter(p => p.bmi_status?.toLowerCase() === "normal").length,
     overweight: patients.filter(p => p.bmi_status?.toLowerCase() === "overweight").length,
     underweight: patients.filter(p => p.bmi_status?.toLowerCase() === "underweight").length,
+  };
+
+  const calculateBMI = (heightCm: string, weightKg: string): string => {
+    const h = parseFloat(heightCm);
+    const w = parseFloat(weightKg);
+    if (!h || !w || h === 0) return "";
+
+    const bmi = w / ((h / 100) ** 2);
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal";
+    if (bmi < 30) return "Overweight";
+    return "Obese";
   };
 
   const handleAddPatient = async (e: React.FormEvent) => {
@@ -493,11 +506,15 @@ const AdminPortal = () => {
                     <th className="text-left p-3 text-sm font-semibold text-secondary-foreground">Service</th>
                     <th className="text-left p-3 text-sm font-semibold text-secondary-foreground">Status</th>
                     <th className="text-left p-3 text-sm font-semibold text-secondary-foreground">Date</th>
+                    <th className="w-12"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {allAppointments.slice(0, 10).map((appt) => (
-                    <tr key={appt.id} className="border-t border-border">
+                    <tr 
+                      key={appt.id} 
+                      className="group border-t border-border hover:bg-muted/50 transition-colors"
+                    >
                       <td className="p-3 text-sm text-card-foreground">{appt.student_name}</td>
                       <td className="p-3 text-sm text-card-foreground">{appt.service_type}</td>
                       <td className="p-3">
@@ -506,9 +523,38 @@ const AdminPortal = () => {
                           ${appt.status === "pending" ? "bg-muted text-muted-foreground" : ""}
                           ${appt.status === "rejected" ? "bg-destructive/20 text-destructive" : ""}
                           ${appt.status === "waitlisted" ? "bg-accent/20 text-accent-foreground" : ""}
-                        `}>{appt.status}</span>
+                        `}>
+                          {appt.status}
+                        </span>
                       </td>
-                      <td className="p-3 text-sm text-muted-foreground">{new Date(appt.created_at).toLocaleDateString()}</td>
+                      <td className="p-3 text-sm text-muted-foreground">
+                        {new Date(appt.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="p-3 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={async () => {
+                            const { error } = await supabase
+                              .from("appointments")
+                              .delete()
+                              .eq("id", appt.id);
+
+                            if (error) {
+                              toast({ title: "Error", description: error.message, variant: "destructive" });
+                            } else {
+                              toast({ 
+                                title: "Appointment Deleted",
+                                description: `${appt.student_name}'s appointment has been removed.` 
+                              });
+                              loadData();
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -517,21 +563,28 @@ const AdminPortal = () => {
           </div>
         )}
 
-        {/* ===== PATIENT ===== */}
+        {/* ===== PATIENT SECTION ===== */}
         {activeSection === "Patient" && (
           <div>
-            <div className="flex items-center justify-between mb-2 flex-wrap gap-4">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
               <div>
-                <h2 className="text-2xl font-bold text-foreground flex items-center gap-2"><Users className="w-6 h-6" /> Patients</h2>
-                <p className="text-sm text-muted-foreground">Manage patient health profiles. Up to 50 patients.</p>
+                <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <Users className="w-6 h-6" /> Patients
+                </h2>
+                <p className="text-sm text-muted-foreground">Click "Show" to view full details</p>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Search patients..." value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} className="pl-10 w-56" />
+                  <Input
+                    placeholder="Search patients..."
+                    value={patientSearch}
+                    onChange={(e) => setPatientSearch(e.target.value)}
+                    className="pl-10 w-64"
+                  />
                 </div>
                 <Select value={filterGrade} onValueChange={(v) => { setFilterGrade(v); setFilterStrand("all"); }}>
-                  <SelectTrigger className="w-36"><SelectValue placeholder="Grade" /></SelectTrigger>
+                  <SelectTrigger className="w-40"><SelectValue placeholder="Grade" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Grades</SelectItem>
                     {["7", "8", "9", "10", "11", "12"].map((g) => (
@@ -541,159 +594,317 @@ const AdminPortal = () => {
                 </Select>
                 {(filterGrade === "11" || filterGrade === "12") && (
                   <Select value={filterStrand} onValueChange={setFilterStrand}>
-                    <SelectTrigger className="w-36"><SelectValue placeholder="Strand" /></SelectTrigger>
+                    <SelectTrigger className="w-40"><SelectValue placeholder="Strand" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Strands</SelectItem>
-                      {strands.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
+                      {strands.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
-                <Button onClick={() => setShowAddPatient(true)}><Plus className="w-4 h-4 mr-2" /> Add Patient</Button>
+                <Button onClick={() => setShowAddPatient(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Add Patient
+                </Button>
               </div>
             </div>
 
             {/* BMI Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-4">
-              <div className="bg-card rounded-lg border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Patients</p>
-                <p className="text-3xl font-bold text-foreground mt-1">{bmiStats.total}</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="bg-card rounded-2xl border border-border p-5">
+                <p className="text-xs font-medium text-muted-foreground">TOTAL PATIENTS</p>
+                <p className="text-4xl font-bold text-foreground mt-1">{bmiStats.total}</p>
               </div>
-              <div className="bg-card rounded-lg border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Normal BMI</p>
-                <p className="text-3xl font-bold text-primary mt-1">{bmiStats.normal}</p>
+              <div className="bg-card rounded-2xl border border-border p-5">
+                <p className="text-xs font-medium text-muted-foreground">NORMAL BMI</p>
+                <p className="text-4xl font-bold text-emerald-600 mt-1">{bmiStats.normal}</p>
               </div>
-              <div className="bg-card rounded-lg border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Overweight</p>
-                <p className="text-3xl font-bold text-orange-500 mt-1">{bmiStats.overweight}</p>
+              <div className="bg-card rounded-2xl border border-border p-5">
+                <p className="text-xs font-medium text-muted-foreground">OVERWEIGHT</p>
+                <p className="text-4xl font-bold text-orange-600 mt-1">{bmiStats.overweight}</p>
               </div>
-              <div className="bg-card rounded-lg border border-border p-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Underweight</p>
-                <p className="text-3xl font-bold text-blue-500 mt-1">{bmiStats.underweight}</p>
+              <div className="bg-card rounded-2xl border border-border p-5">
+                <p className="text-xs font-medium text-muted-foreground">UNDERWEIGHT</p>
+                <p className="text-4xl font-bold text-blue-600 mt-1">{bmiStats.underweight}</p>
               </div>
             </div>
 
-            {/* Patient Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {filteredPatients.map((p) => (
-                <div key={p.id} className="bg-card rounded-lg border border-border p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-10 h-10 rounded-full ${getAvatarColor(p.full_name)} flex items-center justify-center text-primary-foreground text-sm font-bold shrink-0`}>
-                      {getInitials(p.full_name)}
+            {/* Patient Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5">
+              {filteredPatients.map((p) => {
+                const isExpanded = expandedPatientId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-md ${isExpanded ? 'shadow-xl' : ''}`}
+                  >
+                    <div className="p-5 flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl ${getAvatarColor(p.full_name)} flex items-center justify-center text-white text-xl font-bold`}>
+                        {getInitials(p.full_name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-foreground truncate">{p.full_name}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">LRN: {p.lrn}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-card-foreground text-sm truncate">{p.full_name}</p>
-                      <p className="text-xs text-muted-foreground">LRN: {p.lrn}</p>
+
+                    <div className="px-5 pb-5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedPatientId(isExpanded ? null : p.id);
+                        }}
+                      >
+                        {isExpanded ? "Hide Details" : "Show Details"}
+                      </Button>
                     </div>
+
+                    {isExpanded && (
+                      <div className="px-5 pb-6 border-t border-border pt-5 bg-muted/30">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">GRADE</p>
+                            <p className="font-medium mt-1">{p.grade}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">BMI</p>
+                            <p className="font-medium mt-1">{p.bmi_status || "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">HEIGHT</p>
+                            <p className="font-medium mt-1">{p.height ? `${p.height} cm` : "—"}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground font-medium">WEIGHT</p>
+                            <p className="font-medium mt-1">{p.weight ? `${p.weight} kg` : "—"}</p>
+                          </div>
+                        </div>
+                        <div className="mt-5 pt-5 border-t border-border">
+                          <p className="text-xs text-muted-foreground font-medium mb-1">MEDICAL HISTORY</p>
+                          <p className="text-sm">{p.medical_history || "None"}</p>
+                        </div>
+                        <div className="mt-4">
+                          <p className="text-xs text-muted-foreground font-medium mb-1">CLINIC EXPOSURE</p>
+                          <p className="text-sm">{p.clinic_exposure || "None"}</p>
+                        </div>
+                        <div className="flex gap-3 mt-6">
+                          <Button size="sm" variant="outline" className="flex-1" onClick={(e) => { e.stopPropagation(); openEditPatient(p); }}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="destructive" className="flex-1" onClick={(e) => { e.stopPropagation(); handleDeletePatient(p.id); }}>
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs mb-4">
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>Grade/Section</p><p className="text-card-foreground font-medium">{p.grade}</p></div>
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>BMI Status</p><p className="text-card-foreground font-medium">{p.bmi_status || "—"}</p></div>
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>Height</p><p className="text-card-foreground font-medium">{p.height || "—"}</p></div>
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>Weight</p><p className="text-card-foreground font-medium">{p.weight || "—"}</p></div>
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>Med History</p><p className="text-card-foreground font-medium">{p.medical_history || "None"}</p></div>
-                    <div><p className="text-muted-foreground uppercase font-semibold tracking-wider" style={{ fontSize: '10px' }}>Clinic Exposure</p><p className="text-card-foreground font-medium">{p.clinic_exposure || "None"}</p></div>
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t border-border">
-                    <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => openEditPatient(p)}><Pencil className="w-3 h-3 mr-1" /> Edit</Button>
-                    <Button size="sm" variant="destructive" className="flex-1 text-xs" onClick={() => handleDeletePatient(p.id)}><Trash2 className="w-3 h-3 mr-1" /> Delete</Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
-            {/* Add Patient Dialog */}
+            {/* ADD PATIENT */}
             <Dialog open={showAddPatient} onOpenChange={setShowAddPatient}>
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>Add New Patient</DialogTitle></DialogHeader>
                 <form onSubmit={handleAddPatient} className="space-y-4">
-                  <div><label className="block text-sm font-medium mb-1">Full Name (Last, First Middle)</label><Input value={newPatient.full_name} onChange={(e) => setNewPatient({ ...newPatient, full_name: e.target.value })} required placeholder="e.g. Dela Cruz, Juan A." /></div>
-                  <div><label className="block text-sm font-medium mb-1">LRN</label><Input value={newPatient.lrn} onChange={(e) => setNewPatient({ ...newPatient, lrn: e.target.value })} required /></div>
-                  <div><label className="block text-sm font-medium mb-1">Grade</label>
-                    <Select value={newPatient.grade} onValueChange={(v) => setNewPatient({ ...newPatient, grade: v, strand: "", section: "" })}>
-                      <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
-                      <SelectContent>{["7", "8", "9", "10", "11", "12"].map((g) => (<SelectItem key={g} value={g}>Grade {g}</SelectItem>))}</SelectContent>
-                    </Select>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Full Name (Last, First Middle)</label>
+                    <Input value={newPatient.full_name} onChange={(e) => setNewPatient({ ...newPatient, full_name: e.target.value })} required placeholder="e.g. Rollon, Van A." />
                   </div>
-                  {isSHS(newPatient.grade) && (
-                    <div><label className="block text-sm font-medium mb-1">Strand</label>
-                      <Select value={newPatient.strand} onValueChange={(v) => setNewPatient({ ...newPatient, strand: v })}>
-                        <SelectTrigger><SelectValue placeholder="Select strand" /></SelectTrigger>
-                        <SelectContent>{strands.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {newPatient.grade && (
-                    <div><label className="block text-sm font-medium mb-1">Section</label><Input value={newPatient.section} onChange={(e) => setNewPatient({ ...newPatient, section: e.target.value })} placeholder="e.g. THALES" /></div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><label className="block text-sm font-medium mb-1">Height</label><Input placeholder="e.g. 165cm" value={newPatient.height} onChange={(e) => setNewPatient({ ...newPatient, height: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Weight</label><Input placeholder="e.g. 59kg" value={newPatient.weight} onChange={(e) => setNewPatient({ ...newPatient, weight: e.target.value })} /></div>
-                  </div>
-                  <div><label className="block text-sm font-medium mb-1">BMI Status</label>
-                    <Select value={newPatient.bmi_status} onValueChange={(v) => setNewPatient({ ...newPatient, bmi_status: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select BMI status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Underweight">Underweight</SelectItem>
-                        <SelectItem value="Normal">Normal</SelectItem>
-                        <SelectItem value="Overweight">Overweight</SelectItem>
-                        <SelectItem value="Obese">Obese</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div><label className="block text-sm font-medium mb-1">Medical History</label><Input placeholder="e.g. Asthma" value={newPatient.medical_history} onChange={(e) => setNewPatient({ ...newPatient, medical_history: e.target.value })} /></div>
-                  <div><label className="block text-sm font-medium mb-1">Clinic Exposure</label><Input placeholder="e.g. Yes – 3x" value={newPatient.clinic_exposure} onChange={(e) => setNewPatient({ ...newPatient, clinic_exposure: e.target.value })} /></div>
-                  <DialogFooter><Button type="submit">Add Patient</Button></DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
 
-            {/* Edit Patient Dialog */}
-            <Dialog open={showEditPatient} onOpenChange={setShowEditPatient}>
-              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Edit Patient</DialogTitle></DialogHeader>
-                {editPatient && (
-                  <form onSubmit={handleEditPatient} className="space-y-4">
-                    <div><label className="block text-sm font-medium mb-1">Full Name</label><Input value={editPatient.full_name} onChange={(e) => setEditPatient({ ...editPatient, full_name: e.target.value })} required /></div>
-                    <div><label className="block text-sm font-medium mb-1">LRN</label><Input value={editPatient.lrn || ""} onChange={(e) => setEditPatient({ ...editPatient, lrn: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Grade</label>
-                      <Select value={editPatient._grade || ""} onValueChange={(v) => setEditPatient({ ...editPatient, _grade: v, _strand: "" })}>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">LRN (Numbers only, max 12 digits)</label>
+                    <Input 
+                      type="text"
+                      maxLength={12}
+                      value={newPatient.lrn} 
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9]/g, '');
+                        setNewPatient({ ...newPatient, lrn: value });
+                      }} 
+                      required 
+                      
+                    />
+                    {newPatient.lrn && newPatient.lrn.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">Only numbers allowed • {newPatient.lrn.length}/12 digits</p>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Grade</label>
+                      <Select value={newPatient.grade} onValueChange={(v) => setNewPatient({ ...newPatient, grade: v, strand: "", section: "" })}>
                         <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
                         <SelectContent>{["7", "8", "9", "10", "11", "12"].map((g) => (<SelectItem key={g} value={g}>Grade {g}</SelectItem>))}</SelectContent>
                       </Select>
                     </div>
-                    {isSHS(editPatient._grade || "") && (
-                      <div><label className="block text-sm font-medium mb-1">Strand</label>
-                        <Select value={editPatient._strand || ""} onValueChange={(v) => setEditPatient({ ...editPatient, _strand: v })}>
+                    {isSHS(newPatient.grade) && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Strand</label>
+                        <Select value={newPatient.strand} onValueChange={(v) => setNewPatient({ ...newPatient, strand: v })}>
                           <SelectTrigger><SelectValue placeholder="Select strand" /></SelectTrigger>
                           <SelectContent>{strands.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
                         </Select>
                       </div>
                     )}
-                    {editPatient._grade && (
-                      <div><label className="block text-sm font-medium mb-1">Section</label><Input value={editPatient._section || ""} onChange={(e) => setEditPatient({ ...editPatient, _section: e.target.value })} /></div>
-                    )}
+                  </div>
+
+                  {newPatient.grade && (
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Section</label>
+                      <Input value={newPatient.section} onChange={(e) => setNewPatient({ ...newPatient, section: e.target.value })} placeholder="e.g. SARTRE" />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Height (cm)</label>
+                      <Input 
+                        type="number" 
+                        placeholder="165" 
+                        value={newPatient.height} 
+                        onChange={(e) => {
+                          const height = e.target.value;
+                          const bmiStatus = calculateBMI(height, newPatient.weight);
+                          setNewPatient({ ...newPatient, height, bmi_status: bmiStatus });
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Weight (kg)</label>
+                      <Input 
+                        type="number" 
+                        placeholder="59" 
+                        value={newPatient.weight} 
+                        onChange={(e) => {
+                          const weight = e.target.value;
+                          const bmiStatus = calculateBMI(newPatient.height, weight);
+                          setNewPatient({ ...newPatient, weight, bmi_status: bmiStatus });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">BMI Status (Auto-calculated)</label>
+                    <Input value={newPatient.bmi_status || ""} readOnly className="bg-muted font-medium" />
+                  </div>
+
+                  <div><label className="block text-sm font-medium mb-1">Medical History</label>
+                    <Input placeholder="e.g. Asthma" value={newPatient.medical_history} onChange={(e) => setNewPatient({ ...newPatient, medical_history: e.target.value })} />
+                  </div>
+                  <div><label className="block text-sm font-medium mb-1">Clinic Exposure</label>
+                    <Input placeholder="e.g. Yes – 3x" value={newPatient.clinic_exposure} onChange={(e) => setNewPatient({ ...newPatient, clinic_exposure: e.target.value })} />
+                  </div>
+
+                  <DialogFooter><Button type="submit">Add Patient</Button></DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            {/* EDIT PATIENT */}
+            <Dialog open={showEditPatient} onOpenChange={setShowEditPatient}>
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Edit Patient</DialogTitle></DialogHeader>
+                {editPatient && (
+                  <form onSubmit={handleEditPatient} className="space-y-4">
+                    <div><label className="block text-sm font-medium mb-1">Full Name</label>
+                      <Input value={editPatient.full_name} onChange={(e) => setEditPatient({ ...editPatient, full_name: e.target.value })} required />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">LRN (Numbers only, max 12 digits)</label>
+                      <Input 
+                        type="text"
+                        maxLength={12}
+                        value={editPatient.lrn || ""} 
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9]/g, '');
+                          setEditPatient({ ...editPatient, lrn: value });
+                        }} 
+                      />
+                      {editPatient.lrn && editPatient.lrn.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">Only numbers allowed • {editPatient.lrn.length}/12 digits</p>
+                      )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
-                      <div><label className="block text-sm font-medium mb-1">Height</label><Input value={editPatient.height || ""} onChange={(e) => setEditPatient({ ...editPatient, height: e.target.value })} /></div>
-                      <div><label className="block text-sm font-medium mb-1">Weight</label><Input value={editPatient.weight || ""} onChange={(e) => setEditPatient({ ...editPatient, weight: e.target.value })} /></div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Grade</label>
+                        <Select value={editPatient._grade || ""} onValueChange={(v) => setEditPatient({ ...editPatient, _grade: v, _strand: "" })}>
+                          <SelectTrigger><SelectValue placeholder="Select grade" /></SelectTrigger>
+                          <SelectContent>{["7", "8", "9", "10", "11", "12"].map((g) => (<SelectItem key={g} value={g}>Grade {g}</SelectItem>))}</SelectContent>
+                        </Select>
+                      </div>
+                      {isSHS(editPatient._grade || "") && (
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Strand</label>
+                          <Select value={editPatient._strand || ""} onValueChange={(v) => setEditPatient({ ...editPatient, _strand: v })}>
+                            <SelectTrigger><SelectValue placeholder="Select strand" /></SelectTrigger>
+                            <SelectContent>{strands.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
-                    <div><label className="block text-sm font-medium mb-1">BMI Status</label>
-                      <Select value={editPatient.bmi_status || ""} onValueChange={(v) => setEditPatient({ ...editPatient, bmi_status: v })}>
-                        <SelectTrigger><SelectValue placeholder="Select BMI status" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Underweight">Underweight</SelectItem>
-                          <SelectItem value="Normal">Normal</SelectItem>
-                          <SelectItem value="Overweight">Overweight</SelectItem>
-                          <SelectItem value="Obese">Obese</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    {editPatient._grade && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Section</label>
+                        <Input value={editPatient._section || ""} onChange={(e) => setEditPatient({ ...editPatient, _section: e.target.value })} />
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Height (cm)</label>
+                        <Input 
+                          type="number" 
+                          placeholder="165" 
+                          value={editPatient.height || ""} 
+                          onChange={(e) => {
+                            const height = e.target.value;
+                            const bmiStatus = calculateBMI(height, editPatient.weight || "");
+                            setEditPatient({ ...editPatient, height, bmi_status: bmiStatus });
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Weight (kg)</label>
+                        <Input 
+                          type="number" 
+                          placeholder="59" 
+                          value={editPatient.weight || ""} 
+                          onChange={(e) => {
+                            const weight = e.target.value;
+                            const bmiStatus = calculateBMI(editPatient.height || "", weight);
+                            setEditPatient({ ...editPatient, weight, bmi_status: bmiStatus });
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div><label className="block text-sm font-medium mb-1">Medical History</label><Input value={editPatient.medical_history || ""} onChange={(e) => setEditPatient({ ...editPatient, medical_history: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Clinic Exposure</label><Input value={editPatient.clinic_exposure || ""} onChange={(e) => setEditPatient({ ...editPatient, clinic_exposure: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Email</label><Input value={editPatient.email || ""} onChange={(e) => setEditPatient({ ...editPatient, email: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Home Address</label><Input value={editPatient.home_address || ""} onChange={(e) => setEditPatient({ ...editPatient, home_address: e.target.value })} /></div>
-                    <div><label className="block text-sm font-medium mb-1">Contact No.</label><Input value={editPatient.contact_no || ""} onChange={(e) => setEditPatient({ ...editPatient, contact_no: e.target.value })} /></div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">BMI Status (Auto-calculated)</label>
+                      <Input value={editPatient.bmi_status || ""} readOnly className="bg-muted font-medium" />
+                    </div>
+
+                    <div><label className="block text-sm font-medium mb-1">Medical History</label>
+                      <Input value={editPatient.medical_history || ""} onChange={(e) => setEditPatient({ ...editPatient, medical_history: e.target.value })} />
+                    </div>
+                    <div><label className="block text-sm font-medium mb-1">Clinic Exposure</label>
+                      <Input value={editPatient.clinic_exposure || ""} onChange={(e) => setEditPatient({ ...editPatient, clinic_exposure: e.target.value })} />
+                    </div>
+                    <div><label className="block text-sm font-medium mb-1">Email</label>
+                      <Input value={editPatient.email || ""} onChange={(e) => setEditPatient({ ...editPatient, email: e.target.value })} />
+                    </div>
+                    <div><label className="block text-sm font-medium mb-1">Home Address</label>
+                      <Input value={editPatient.home_address || ""} onChange={(e) => setEditPatient({ ...editPatient, home_address: e.target.value })} />
+                    </div>
+                    <div><label className="block text-sm font-medium mb-1">Contact No.</label>
+                      <Input value={editPatient.contact_no || ""} onChange={(e) => setEditPatient({ ...editPatient, contact_no: e.target.value })} />
+                    </div>
+
                     <DialogFooter><Button type="submit">Save Changes</Button></DialogFooter>
                   </form>
                 )}
@@ -745,7 +956,7 @@ const AdminPortal = () => {
 
             {/* Finished Appointments */}
             {finishedAppointments.length > 0 && (
-              <div className="mt-8">
+              <div className="mt-10">
                 <h3 className="text-xl font-bold text-foreground mb-4">Finished Appointments</h3>
                 <div className="bg-card rounded-lg border border-border overflow-x-auto">
                   <table className="w-full">
@@ -754,16 +965,55 @@ const AdminPortal = () => {
                         <th className="text-left p-4 text-sm font-semibold text-secondary-foreground">Student</th>
                         <th className="text-left p-4 text-sm font-semibold text-secondary-foreground">Service</th>
                         <th className="text-left p-4 text-sm font-semibold text-secondary-foreground">Scheduled</th>
-                        <th className="text-left p-4 text-sm font-semibold text-secondary-foreground">Finished</th>
+                        <th className="text-left p-4 text-sm font-semibold text-secondary-foreground">Finished Date</th>
+                        <th className="w-12"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {finishedAppointments.map((appt) => (
-                        <tr key={appt.id} className="border-t border-border">
+                        <tr 
+                          key={appt.id} 
+                          className="group border-t border-border hover:bg-muted/50 transition-colors"
+                        >
                           <td className="p-4 text-sm text-card-foreground">{appt.student_name}</td>
                           <td className="p-4 text-sm text-card-foreground">{appt.service_type}</td>
-                          <td className="p-4 text-sm text-card-foreground">{appt.scheduled_date ? new Date(appt.scheduled_date).toLocaleDateString() : "—"}</td>
-                          <td className="p-4 text-sm text-muted-foreground">{new Date(appt.finished_at).toLocaleDateString()}</td>
+                          <td className="p-4 text-sm text-card-foreground">
+                            {appt.scheduled_date 
+                              ? new Date(appt.scheduled_date).toLocaleDateString() 
+                              : "—"}
+                          </td>
+                          <td className="p-4 text-sm text-muted-foreground">
+                            {new Date(appt.finished_at).toLocaleDateString()}
+                          </td>
+                          <td className="p-4 text-right opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              onClick={async () => {
+                                const { error } = await supabase
+                                  .from("finished_appointments")
+                                  .delete()
+                                  .eq("id", appt.id);
+
+                                if (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: error.message,
+                                    variant: "destructive"
+                                  });
+                                } else {
+                                  toast({
+                                    title: "Appointment Deleted",
+                                    description: `${appt.student_name}'s record has been removed.`,
+                                  });
+                                  loadData();
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1012,25 +1262,65 @@ const AdminPortal = () => {
           <div>
             <h2 className="text-2xl font-bold text-foreground mb-6">Student Messages</h2>
             <div className="flex bg-card rounded-lg border border-border overflow-hidden" style={{ height: "500px" }}>
-              {/* Conversation list */}
-              <div className="w-64 border-r border-border overflow-y-auto">
+              
+              {/* Conversation List */}
+              <div className="w-72 border-r border-border overflow-y-auto">
                 {studentConversations.length === 0 ? (
                   <p className="p-4 text-sm text-muted-foreground">No messages yet.</p>
                 ) : (
                   studentConversations.map((conv) => (
-                    <button
+                    <div
                       key={conv.student_id}
+                      className={`group flex items-center justify-between p-4 border-b border-border hover:bg-secondary transition-colors cursor-pointer ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
                       onClick={() => setSelectedStudentId(conv.student_id)}
-                      className={`w-full text-left p-4 border-b border-border hover:bg-secondary transition-colors ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
                     >
-                      <p className="text-sm font-semibold text-card-foreground">{conv.student_name}</p>
-                      <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
-                    </button>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-card-foreground truncate">{conv.student_name}</p>
+                        <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
+                      </div>
+
+                      {/* Delete Button */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-destructive opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+
+                          // Delete all messages for this student
+                          const { error } = await supabase
+                            .from("feedback")
+                            .delete()
+                            .eq("student_id", conv.student_id);
+
+                          if (error) {
+                            toast({
+                              title: "Error",
+                              description: error.message,
+                              variant: "destructive"
+                            });
+                          } else {
+                            toast({
+                              title: "Conversation Deleted",
+                              description: `All messages with ${conv.student_name} have been removed.`,
+                            });
+
+                            // Force clear selected conversation
+                            setSelectedStudentId(null);
+
+                            // Refresh data
+                            loadData();
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))
                 )}
               </div>
 
-              {/* Chat area */}
+              {/* Chat Area */}
               <div className="flex-1 flex flex-col">
                 {selectedStudentId ? (
                   <>
@@ -1038,15 +1328,25 @@ const AdminPortal = () => {
                       {studentConversations.find(c => c.student_id === selectedStudentId)?.messages.map((msg: any) => (
                         <div key={msg.id} className={`flex ${msg.sender_role === "admin" ? "justify-end" : "justify-start"}`}>
                           <div className={`max-w-[70%] rounded-lg px-4 py-2 ${msg.sender_role === "admin" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}>
-                            <p className="text-xs font-semibold mb-1">{msg.sender_role === "admin" ? "Admin" : msg.student_name}</p>
+                            <p className="text-xs font-semibold mb-1">
+                              {msg.sender_role === "admin" ? "Admin" : msg.student_name}
+                            </p>
                             <p className="text-sm">{msg.message}</p>
-                            <p className="text-xs opacity-60 mt-1">{new Date(msg.created_at).toLocaleString()}</p>
+                            <p className="text-xs opacity-60 mt-1">
+                              {new Date(msg.created_at).toLocaleString()}
+                            </p>
                           </div>
                         </div>
                       ))}
                     </div>
+
                     <form onSubmit={handleAdminReply} className="border-t border-border p-4 flex gap-2">
-                      <Input placeholder="Type a reply..." value={adminReply} onChange={(e) => setAdminReply(e.target.value)} className="flex-1" />
+                      <Input 
+                        placeholder="Type a reply..." 
+                        value={adminReply} 
+                        onChange={(e) => setAdminReply(e.target.value)} 
+                        className="flex-1" 
+                      />
                       <Button type="submit">Send</Button>
                     </form>
                   </>
