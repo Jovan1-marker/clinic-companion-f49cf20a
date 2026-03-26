@@ -340,6 +340,23 @@ const AdminPortal = () => {
       scheduled_time: appt.scheduled_time, admin_comment: appt.admin_comment,
     });
     await supabase.from("appointments").delete().eq("id", appointmentId);
+
+    /* Promote first waitlisted appointment and notify via SMS */
+    const { data: nextWaitlisted } = await supabase.from("appointments")
+      .select("*").eq("status", "waitlisted").order("created_at").limit(1);
+    if (nextWaitlisted && nextWaitlisted.length > 0) {
+      const next = nextWaitlisted[0];
+      await supabase.from("appointments").update({ status: "approved" }).eq("id", next.id);
+      if (next.student_id) {
+        const contact = await getStudentContact(next.student_id);
+        if (contact) {
+          const dateStr = next.scheduled_date ? new Date(next.scheduled_date).toLocaleDateString() : "TBD";
+          const timeStr = next.scheduled_time || "TBD";
+          sendSms(contact, `Great news! Your clinic appointment has been moved from the waitlist. It is now scheduled on ${dateStr} at ${timeStr}. Please come on time.`);
+        }
+      }
+    }
+
     toast({ title: "Marked as Done" }); loadData();
   };
 
