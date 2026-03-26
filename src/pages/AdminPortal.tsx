@@ -265,6 +265,17 @@ const AdminPortal = () => {
     }
   };
 
+  /* Send SMS helper (fire-and-forget) */
+  const sendSms = (to: string, message: string) => {
+    supabase.functions.invoke("send-sms", { body: { to, message } }).catch(console.error);
+  };
+
+  /* Look up student contact number from profiles */
+  const getStudentContact = async (studentId: string) => {
+    const { data } = await supabase.from("profiles").select("contact_no").eq("id", studentId).maybeSingle();
+    return data?.contact_no || null;
+  };
+
   const handleApproveClick = (appointmentId: string) => {
     setApprovingId(appointmentId);
     setSelectedDate(undefined);
@@ -282,11 +293,24 @@ const AdminPortal = () => {
     if (!approvingId || !selectedDate) return;
     const { count } = await supabase.from("appointments").select("*", { count: "exact", head: true }).eq("status", "approved");
     const status = (count || 0) >= 5 ? "waitlisted" : "approved";
+    /* Get the appointment to find student_id */
+    const appt = allAppointments.find(a => a.id === approvingId);
     const { error } = await supabase.from("appointments").update({
       status, scheduled_date: selectedDate.toISOString(), scheduled_time: selectedTime,
     }).eq("id", approvingId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else {
+      /* Send SMS notification */
+      if (appt?.student_id) {
+        const contact = await getStudentContact(appt.student_id);
+        if (contact) {
+          if (status === "approved") {
+            sendSms(contact, `Your clinic appointment is scheduled on ${selectedDate.toLocaleDateString()} at ${selectedTime}. Please come on time.`);
+          } else {
+            sendSms(contact, `Your clinic appointment has been added to the waitlist. You will be notified when a slot opens.`);
+          }
+        }
+      }
       toast({
         title: status === "approved" ? "Appointment Approved!" : "Added to Waitlist",
         description: status === "waitlisted" ? "Max 5 active. Waitlisted." : `Scheduled for ${selectedDate.toLocaleDateString()} at ${selectedTime}`,
@@ -316,6 +340,23 @@ const AdminPortal = () => {
       scheduled_time: appt.scheduled_time, admin_comment: appt.admin_comment,
     });
     await supabase.from("appointments").delete().eq("id", appointmentId);
+
+    /* Promote first waitlisted appointment and notify via SMS */
+    const { data: nextWaitlisted } = await supabase.from("appointments")
+      .select("*").eq("status", "waitlisted").order("created_at").limit(1);
+    if (nextWaitlisted && nextWaitlisted.length > 0) {
+      const next = nextWaitlisted[0];
+      await supabase.from("appointments").update({ status: "approved" }).eq("id", next.id);
+      if (next.student_id) {
+        const contact = await getStudentContact(next.student_id);
+        if (contact) {
+          const dateStr = next.scheduled_date ? new Date(next.scheduled_date).toLocaleDateString() : "TBD";
+          const timeStr = next.scheduled_time || "TBD";
+          sendSms(contact, `Great news! Your clinic appointment has been moved from the waitlist. It is now scheduled on ${dateStr} at ${timeStr}. Please come on time.`);
+        }
+      }
+    }
+
     toast({ title: "Marked as Done" }); loadData();
   };
 
