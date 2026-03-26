@@ -293,11 +293,24 @@ const AdminPortal = () => {
     if (!approvingId || !selectedDate) return;
     const { count } = await supabase.from("appointments").select("*", { count: "exact", head: true }).eq("status", "approved");
     const status = (count || 0) >= 5 ? "waitlisted" : "approved";
+    /* Get the appointment to find student_id */
+    const appt = allAppointments.find(a => a.id === approvingId);
     const { error } = await supabase.from("appointments").update({
       status, scheduled_date: selectedDate.toISOString(), scheduled_time: selectedTime,
     }).eq("id", approvingId);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else {
+      /* Send SMS notification */
+      if (appt?.student_id) {
+        const contact = await getStudentContact(appt.student_id);
+        if (contact) {
+          if (status === "approved") {
+            sendSms(contact, `Your clinic appointment is scheduled on ${selectedDate.toLocaleDateString()} at ${selectedTime}. Please come on time.`);
+          } else {
+            sendSms(contact, `Your clinic appointment has been added to the waitlist. You will be notified when a slot opens.`);
+          }
+        }
+      }
       toast({
         title: status === "approved" ? "Appointment Approved!" : "Added to Waitlist",
         description: status === "waitlisted" ? "Max 5 active. Waitlisted." : `Scheduled for ${selectedDate.toLocaleDateString()} at ${selectedTime}`,
