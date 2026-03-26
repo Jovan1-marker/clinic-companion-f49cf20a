@@ -265,6 +265,17 @@ const AdminPortal = () => {
     }
   };
 
+  /* Send SMS helper (fire-and-forget) */
+  const sendSms = (to: string, message: string) => {
+    supabase.functions.invoke("send-sms", { body: { to, message } }).catch(console.error);
+  };
+
+  /* Look up student contact number from profiles */
+  const getStudentContact = async (studentId: string) => {
+    const { data } = await supabase.from("profiles").select("contact_no").eq("id", studentId).maybeSingle();
+    return data?.contact_no || null;
+  };
+
   const handleApproveClick = (appointmentId: string) => {
     setApprovingId(appointmentId);
     setSelectedDate(undefined);
