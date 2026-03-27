@@ -7,6 +7,11 @@ const corsHeaders = {
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/twilio';
 const PHONE_NUMBER_PATTERN = /^\+[1-9]\d{7,14}$/;
+const MESSAGING_SERVICE_SID_PATTERN = /^MG[0-9a-fA-F]{32}$/;
+
+type TwilioSender =
+  | { type: 'phone'; value: string }
+  | { type: 'messaging_service'; value: string };
 
 const normalizePhoneNumber = (value: string) => {
   const trimmed = value.replace(/[\s()-]/g, '');
@@ -31,6 +36,23 @@ const isValidE164 = (value: string | null | undefined) => {
   return PHONE_NUMBER_PATTERN.test(normalizePhoneNumber(value));
 };
 
+const resolveConfiguredSender = (value: string | null | undefined): TwilioSender | null => {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  const normalized = normalizePhoneNumber(trimmed);
+
+  if (isValidE164(normalized)) {
+    return { type: 'phone', value: normalized };
+  }
+
+  if (MESSAGING_SERVICE_SID_PATTERN.test(trimmed)) {
+    return { type: 'messaging_service', value: trimmed };
+  }
+
+  return null;
+};
+
 const fetchAvailableFromNumber = async (lovableApiKey: string, twilioApiKey: string) => {
   const numRes = await fetch(`${GATEWAY_URL}/IncomingPhoneNumbers.json`, {
     headers: {
@@ -45,10 +67,25 @@ const fetchAvailableFromNumber = async (lovableApiKey: string, twilioApiKey: str
     throw new Error(`Twilio number lookup failed [${numRes.status}]: ${JSON.stringify(numData)}`);
   }
 
-  return numData.incoming_phone_numbers?.[0]?.phone_number ?? null;
+  const phoneNumber = numData.incoming_phone_numbers?.[0]?.phone_number ?? null;
+  return phoneNumber && isValidE164(phoneNumber) ? normalizePhoneNumber(phoneNumber) : null;
 };
 
-const sendMessage = async (lovableApiKey: string, twilioApiKey: string, to: string, from: string, message: string) => {
+const sendMessage = async (
+  lovableApiKey: string,
+  twilioApiKey: string,
+  to: string,
+  sender: TwilioSender,
+  message: string,
+) => {
+  const body = new URLSearchParams({ To: to, Body: message });
+
+  if (sender.type === 'phone') {
+    body.set('From', sender.value);
+  } else {
+    body.set('MessagingServiceSid', sender.value);
+  }
+
   const response = await fetch(`${GATEWAY_URL}/Messages.json`, {
     method: 'POST',
     headers: {
@@ -56,7 +93,7 @@ const sendMessage = async (lovableApiKey: string, twilioApiKey: string, to: stri
       'X-Connection-Api-Key': twilioApiKey,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: new URLSearchParams({ To: to, From: from, Body: message }),
+    body,
   });
 
   const data = await response.json();
@@ -98,25 +135,30 @@ serve(async (req) => {
       });
     }
 
-    const configuredFromNumber = Deno.env.get('TWILIO_FROM_NUMBER');
-    let from = isValidE164(configuredFromNumber)
-      ? normalizePhoneNumber(configuredFromNumber as string)
-      : await fetchAvailableFromNumber(LOVABLE_API_KEY, TWILIO_API_KEY);
+    const configuredSender = resolveConfiguredSender(Deno.env.get('TWILIO_FROM_NUMBER'));
+    let sender: TwilioSender | null = configuredSender;
 
-    if (!from) {
-      return new Response(JSON.stringify({ error: 'No valid Twilio phone number is available. Set TWILIO_FROM_NUMBER to a Twilio number in E.164 format.' }), {
+    if (!sender) {
+      const fallbackFrom = await fetchAvailableFromNumber(LOVABLE_API_KEY, TWILIO_API_KEY);
+      sender = fallbackFrom ? { type: 'phone', value: fallbackFrom } : null;
+    }
+
+    if (!sender) {
+      return new Response(JSON.stringify({
+        error: 'No valid Twilio sender is available. Set TWILIO_FROM_NUMBER to a Twilio phone number in E.164 format (for example +15551234567) or a Twilio Messaging Service SID (MG...). If you rely on automatic fallback, the connected Twilio account must have at least one purchased phone number.',
+      }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    let { response, data } = await sendMessage(LOVABLE_API_KEY, TWILIO_API_KEY, phone, from, message);
+    let { response, data } = await sendMessage(LOVABLE_API_KEY, TWILIO_API_KEY, phone, sender, message);
 
-    if (!response.ok && data?.code === 21212) {
+    if (!response.ok && data?.code === 21212 && sender.type === 'phone') {
       const fallbackFrom = await fetchAvailableFromNumber(LOVABLE_API_KEY, TWILIO_API_KEY);
 
-      if (fallbackFrom && fallbackFrom !== from) {
-        from = fallbackFrom;
-        ({ response, data } = await sendMessage(LOVABLE_API_KEY, TWILIO_API_KEY, phone, from, message));
+      if (fallbackFrom && fallbackFrom !== sender.value) {
+        sender = { type: 'phone', value: fallbackFrom };
+        ({ response, data } = await sendMessage(LOVABLE_API_KEY, TWILIO_API_KEY, phone, sender, message));
       }
     }
 
@@ -124,12 +166,12 @@ serve(async (req) => {
       throw new Error(`Twilio API error [${response.status}]: ${JSON.stringify(data)}`);
     }
 
-    return new Response(JSON.stringify({ success: true, sid: data.sid, from }), {
+    return new Response(JSON.stringify({ success: true, sid: data.sid, sender: sender.value, senderType: sender.type }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    console.error("SMS send error:", error);
-    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error('SMS send error:', error);
+    const msg = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
