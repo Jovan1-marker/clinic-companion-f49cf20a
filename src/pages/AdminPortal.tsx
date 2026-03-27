@@ -389,6 +389,18 @@ const AdminPortal = () => {
     editorRef.current?.focus();
   };
 
+  /* Delete entire conversation with a student */
+  const handleDeleteConversation = async (studentId: string) => {
+    const { error } = await supabase.from("feedback").delete().eq("student_id", studentId);
+    if (error) {
+      toast({ title: "Error deleting conversation", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (selectedStudentId === studentId) setSelectedStudentId(null);
+    toast({ title: "Conversation deleted" });
+    loadData();
+  };
+
   /* Admin reply to student message — saves in-app AND sends SMS */
   const handleAdminReply = async (e: React.FormEvent) => {
     e.preventDefault();
