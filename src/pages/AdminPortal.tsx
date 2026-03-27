@@ -144,12 +144,17 @@ const AdminPortal = () => {
         if (!grouped[f.student_id]) grouped[f.student_id] = [];
         grouped[f.student_id].push(f);
       });
-      setStudentConversations(Object.entries(grouped).map(([id, msgs]) => ({
-        student_id: id,
-        student_name: msgs[0]?.student_name || "Unknown",
-        messages: msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-        unread: msgs.filter((m: any) => m.sender_role === "student").length,
-      })));
+      setStudentConversations(Object.entries(grouped)
+        .filter(([_, msgs]) => msgs.some((m: any) => m.sender_role === "student"))
+        .map(([id, msgs]) => {
+          const studentMsg = msgs.find((m: any) => m.sender_role === "student");
+          return {
+            student_id: id,
+            student_name: studentMsg?.student_name || "Unknown",
+            messages: msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+            unread: msgs.filter((m: any) => m.sender_role === "student").length,
+          };
+        }));
     }
     if (rRes.data) setRecords(rRes.data);
     if (annRes.data) setAnnouncements(annRes.data);
