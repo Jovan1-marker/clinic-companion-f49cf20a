@@ -1035,14 +1035,25 @@ const AdminPortal = () => {
                   <p className="p-4 text-sm text-muted-foreground">No messages yet.</p>
                 ) : (
                   studentConversations.map((conv) => (
-                    <button
+                    <div
                       key={conv.student_id}
-                      onClick={() => setSelectedStudentId(conv.student_id)}
-                      className={`w-full text-left p-4 border-b border-border hover:bg-secondary transition-colors ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
+                      className={`flex items-center border-b border-border hover:bg-secondary transition-colors ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
                     >
-                      <p className="text-sm font-semibold text-card-foreground">{conv.student_name}</p>
-                      <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
-                    </button>
+                      <button
+                        onClick={() => setSelectedStudentId(conv.student_id)}
+                        className="flex-1 text-left p-4"
+                      >
+                        <p className="text-sm font-semibold text-card-foreground">{conv.student_name}</p>
+                        <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteConversation(conv.student_id)}
+                        className="p-2 mr-2 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))
                 )}
               </div>
