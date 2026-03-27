@@ -144,12 +144,17 @@ const AdminPortal = () => {
         if (!grouped[f.student_id]) grouped[f.student_id] = [];
         grouped[f.student_id].push(f);
       });
-      setStudentConversations(Object.entries(grouped).map(([id, msgs]) => ({
-        student_id: id,
-        student_name: msgs[0]?.student_name || "Unknown",
-        messages: msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
-        unread: msgs.filter((m: any) => m.sender_role === "student").length,
-      })));
+      setStudentConversations(Object.entries(grouped)
+        .filter(([_, msgs]) => msgs.some((m: any) => m.sender_role === "student"))
+        .map(([id, msgs]) => {
+          const studentMsg = msgs.find((m: any) => m.sender_role === "student");
+          return {
+            student_id: id,
+            student_name: studentMsg?.student_name || "Unknown",
+            messages: msgs.sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+            unread: msgs.filter((m: any) => m.sender_role === "student").length,
+          };
+        }));
     }
     if (rRes.data) setRecords(rRes.data);
     if (annRes.data) setAnnouncements(annRes.data);
@@ -382,6 +387,18 @@ const AdminPortal = () => {
   const execCommand = (command: string, value?: string) => {
     document.execCommand(command, false, value);
     editorRef.current?.focus();
+  };
+
+  /* Delete entire conversation with a student */
+  const handleDeleteConversation = async (studentId: string) => {
+    const { error } = await supabase.from("feedback").delete().eq("student_id", studentId);
+    if (error) {
+      toast({ title: "Error deleting conversation", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (selectedStudentId === studentId) setSelectedStudentId(null);
+    toast({ title: "Conversation deleted" });
+    loadData();
   };
 
   /* Admin reply to student message — saves in-app AND sends SMS */
@@ -1018,14 +1035,25 @@ const AdminPortal = () => {
                   <p className="p-4 text-sm text-muted-foreground">No messages yet.</p>
                 ) : (
                   studentConversations.map((conv) => (
-                    <button
+                    <div
                       key={conv.student_id}
-                      onClick={() => setSelectedStudentId(conv.student_id)}
-                      className={`w-full text-left p-4 border-b border-border hover:bg-secondary transition-colors ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
+                      className={`flex items-center border-b border-border hover:bg-secondary transition-colors ${selectedStudentId === conv.student_id ? "bg-secondary" : ""}`}
                     >
-                      <p className="text-sm font-semibold text-card-foreground">{conv.student_name}</p>
-                      <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
-                    </button>
+                      <button
+                        onClick={() => setSelectedStudentId(conv.student_id)}
+                        className="flex-1 text-left p-4"
+                      >
+                        <p className="text-sm font-semibold text-card-foreground">{conv.student_name}</p>
+                        <p className="text-xs text-muted-foreground">{conv.messages.length} messages</p>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteConversation(conv.student_id)}
+                        className="p-2 mr-2 text-muted-foreground hover:text-destructive transition-colors"
+                        title="Delete conversation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   ))
                 )}
               </div>

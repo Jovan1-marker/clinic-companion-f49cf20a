@@ -1,0 +1,1 @@
+CREATE POLICY "Admin can delete feedback" ON public.feedback FOR DELETE TO authenticated USING (is_admin(auth.uid()));
